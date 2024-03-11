@@ -1,0 +1,221 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Checkers</title>
+    <style>
+        #board {
+            width: 400px;
+            height: 400px;
+            border: 1px solid black;
+            display: grid;
+            grid-template-columns: repeat(8, 50px);
+            grid-template-rows: repeat(8, 50px);
+        }
+
+        .cell {
+            width: 50px;
+            height: 50px;
+            border: 1px solid #ccc;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            cursor: pointer;
+        }
+
+        .cell.black {
+            background-color: black;
+        }
+
+        .cell.red {
+            background-color: red;
+        }
+
+        .piece {
+            width: 80%;
+            height: 80%;
+            border-radius: 50%;
+            background-color: #fff;
+        }
+
+        .piece.red {
+            background-color: red;
+        }
+
+        .piece.black {
+            background-color: rgb(0, 216, 36);
+        }
+
+        .piece.king {
+            background-color: gold;
+        }
+    </style>
+</head>
+<body>
+    <div id="board"></div>
+    <script>
+        document.addEventListener("DOMContentLoaded", function() {
+    const board = document.getElementById("board");
+    const rows = 8;
+    const cols = 8;
+    let selectedPiece = null;
+    let boardState = [
+        ['', 'black', '', 'black', '', 'black', '', 'black'],
+        ['black', '', 'black', '', 'black', '', 'black', ''],
+        ['', 'black', '', 'black', '', 'black', '', 'black'],
+        ['', '', '', '', '', '', '', ''],
+        ['', '', '', '', '', '', '', ''],
+        ['red', '', 'red', '', 'red', '', 'red', ''],
+        ['', 'red', '', 'red', '', 'red', '', 'red'],
+        ['red', '', 'red', '', 'red', '', 'red', '']
+    ];
+    let currentTurn = 'red'; // Starting turn
+
+    function createBoard() {
+        for (let i = 0; i < rows; i++) {
+            for (let j = 0; j < cols; j++) {
+                const cell = document.createElement("div");
+                cell.classList.add("cell");
+                cell.dataset.row = i;
+                cell.dataset.col = j;
+                cell.dataset.piece = boardState[i][j];
+
+                if ((i + j) % 2 === 1) {
+                    cell.classList.add("black");
+                    if (boardState[i][j] !== '') {
+                        createPiece(cell, boardState[i][j]);
+                    }
+                }
+
+                // Show current turn symbol
+                if (boardState[i][j] !== '') {
+                    const piece = cell.querySelector('.piece');
+                    if (boardState[i][j] === currentTurn) {
+                        piece.innerHTML += `<span class="turn-symbol">&#x25CF;</span>`; // Black circle
+                    } else {
+                        piece.innerHTML += `<span class="turn-symbol">&#x25CB;</span>`; // White circle
+                    }
+                }
+
+                cell.addEventListener("click", function() {
+                    const currentPiece = this.querySelector('.piece');
+                    if (selectedPiece && !currentPiece) {
+                        const selectedCell = selectedPiece.parentElement;
+                        movePiece(selectedCell, this);
+                    }
+                    if (currentPiece) {
+                        selectedPiece = currentPiece;
+                    }
+                });
+
+                board.appendChild(cell);
+            }
+        }
+    }
+
+    function createPiece(cell, color) {
+        const piece = document.createElement("div");
+        piece.classList.add("piece");
+        piece.classList.add(color);
+        cell.appendChild(piece);
+    }
+
+    function movePiece(selectedCell, targetCell) {
+    const selectedRow = parseInt(selectedCell.dataset.row);
+    const selectedCol = parseInt(selectedCell.dataset.col);
+    const targetRow = parseInt(targetCell.dataset.row);
+    const targetCol = parseInt(targetCell.dataset.col);
+
+    const dx = Math.abs(selectedCol - targetCol);
+    const dy = Math.abs(selectedRow - targetRow);
+
+    // Check if the target cell is empty and the move is diagonal
+    if (!targetCell.querySelector('.piece') && dx === 1 && dy === 1) {
+        // Check if the piece is moving forward and matches the current turn
+        if ((selectedPiece.classList.contains('red') && targetRow < selectedRow && currentTurn === 'red') ||
+            (selectedPiece.classList.contains('black') && targetRow > selectedRow && currentTurn === 'black')) {
+            targetCell.appendChild(selectedPiece);
+            boardState[targetRow][targetCol] = boardState[selectedRow][selectedCol];
+            boardState[selectedRow][selectedCol] = '';
+            selectedPiece = null;
+            // Switch turn after each move
+            switchTurn();
+            // Check if the piece reaches the opposite end and turn it into a king
+            if ((targetRow === 0 && currentTurn === 'black') || (targetRow === 7 && currentTurn === 'red')) {
+                selectedCell.querySelector('.piece').classList.add('king');
+            }
+        }
+    } else if (!targetCell.querySelector('.piece') && dx === 2 && dy === 2) {
+        const middleRow = (selectedRow + targetRow) / 2;
+        const middleCol = (selectedCol + targetCol) / 2;
+        const middleCell = document.querySelector(`.cell[data-row="${middleRow}"][data-col="${middleCol}"]`);
+        // Check if the middle cell contains an opponent's piece
+        if (middleCell.querySelector('.piece') && !middleCell.querySelector('.piece').classList.contains(selectedPiece.classList.value)) {
+            middleCell.innerHTML = ''; // Remove the opponent's piece
+            targetCell.appendChild(selectedPiece);
+            boardState[targetRow][targetCol] = boardState[selectedRow][selectedCol];
+            boardState[selectedRow][selectedCol] = '';
+            selectedPiece = null;
+            // Check for consecutive capture
+            checkConsecutiveCapture(targetRow, targetCol);
+            // Check if the piece reaches the opposite end and turn it into a king
+            if ((targetRow === 0 && currentTurn === 'black') || (targetRow === 7 && currentTurn === 'red')) {
+                targetCell.querySelector('.piece').classList.add('king');
+            }
+        }
+    }
+}
+
+    function checkConsecutiveCapture(row, col) {
+        const piece = boardState[row][col];
+        const directions = [
+            { dx: 1, dy: 1 },
+            { dx: 1, dy: -1 },
+            { dx: -1, dy: 1 },
+            { dx: -1, dy: -1 }
+        ];
+
+        for (const dir of directions) {
+            const x = row + dir.dx;
+            const y = col + dir.dy;
+            const nextX = row + 2 * dir.dx;
+            const nextY = col + 2 * dir.dy;
+
+            // Check if the next cell is within the board's boundaries
+            if (nextX >= 0 && nextX < rows && nextY >= 0 && nextY < cols) {
+                // Check if the next cell is empty and contains an opponent's piece
+                if (!boardState[nextX][nextY] && boardState[x][y] && boardState[x][y] !== piece) {
+                    const middleCell = document.querySelector(`.cell[data-row="${x}"][data-col="${y}"]`);
+                    // Check if the middle cell contains an opponent's piece
+                    if (middleCell && middleCell.querySelector('.piece') && middleCell.querySelector('.piece').classList.contains(piece)) {
+                        // Allow the current player to continue capturing
+                        movePiece(middleCell, document.querySelector(`.cell[data-row="${nextX}"][data-col="${nextY}"]`));
+                        return;
+                    }
+                }
+            }
+        }
+        // If no consecutive capture is possible, switch the turn
+        switchTurn();
+    }
+
+    function switchTurn() {
+        currentTurn = (currentTurn === 'red') ? 'black' : 'red';
+        // Update turn symbol
+        const turnSymbols = document.querySelectorAll('.turn-symbol');
+        turnSymbols.forEach(symbol => {
+            if (currentTurn === 'red') {
+                symbol.innerHTML = '&#x25CF;'; // Black circle
+            } else {
+                symbol.innerHTML = '&#x25CB;'; // White circle
+            }
+        });
+    }
+
+    createBoard();
+});
+
+    </script>
+</body>
+</html>
